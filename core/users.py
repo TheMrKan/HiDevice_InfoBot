@@ -1,21 +1,26 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from sqlalchemy.orm import joinedload
 
-from core.models import User, Controller
+from core.models import User, Controller, UserToController
 from core import controllers
 
 
 async def get_user_async(db: AsyncSession, tg_id: int) -> User | None:
-    sql = select(User).options(joinedload(User.controllers)).where(User.id == tg_id).limit(1)
+    sql = select(User).where(User.id == tg_id).limit(1)
     result = await db.execute(sql)
-    return result.unique().scalar_one_or_none()
+    return result.scalar_one_or_none()
 
 
 async def create_user_async(db: AsyncSession, tg_id: int) -> User:
-    user = User(tg_id)
+    user = User(id=tg_id)
     db.add(user)
     return user
+
+
+async def get_user_controllers_async(db: AsyncSession, user: User) -> list[str]:
+    sql = select(UserToController.controller_user).where(UserToController.user_id == user.id)
+    result = await db.execute(sql)
+    return list(result.scalars())
 
 
 class AuthorizationError(Exception):
@@ -23,13 +28,13 @@ class AuthorizationError(Exception):
 
 
 async def authorize_controller_async(db: AsyncSession, user: User, mqtt_user: str, mqtt_password: str) -> bool:
-    if any(c.mqtt_user == mqtt_user for c in user.controllers):
+    if mqtt_user in await get_user_controllers_async(db, user):
         return False
 
     controller = await controllers.get_controller_async(db, mqtt_user)
     if not controller or not controllers.check_auth(controller, mqtt_password):
         raise AuthorizationError()
 
-    user.controllers.append(controller)
+    db.add(UserToController(user_id=user.id, controller_user=mqtt_user))
     return True
 

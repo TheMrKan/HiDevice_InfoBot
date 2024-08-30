@@ -6,23 +6,10 @@ from sqlalchemy import Column, Table, ForeignKey
 Base = declarative_base()
 
 
-user_to_controller_table = Table(
-    "user_controllers",
-    Base.metadata,
-    Column("user_id", ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
-    Column("controller_user", ForeignKey("controllers.mqtt_user", ondelete="CASCADE"), primary_key=True)
-)
-
-
 class User(Base):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    controllers: Mapped[list["Controller"]] = relationship(secondary=user_to_controller_table, back_populates="users", lazy="joined")
-
-    def __init__(self, id: int):
-        self.id = id
-        self.controllers = []
 
 
 class Controller(Base):
@@ -30,7 +17,13 @@ class Controller(Base):
 
     mqtt_user: Mapped[str] = mapped_column(primary_key=True)
     mqtt_password: Mapped[str] = mapped_column()
-    users: Mapped[list["User"]] = relationship(secondary=user_to_controller_table, back_populates="controllers", lazy="joined")
+
+
+class UserToController(Base):
+    __tablename__ = "user_controllers"
+
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    controller_user: Mapped[str] = mapped_column(ForeignKey("controllers.mqtt_user", ondelete="CASCADE"), primary_key=True)
 
 
 
