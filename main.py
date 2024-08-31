@@ -10,6 +10,8 @@ import config
 from middlewares import DbSessionMiddleware, UsersMiddleware
 import commands
 from core.db import engine
+import broadcaster
+import mqtt
 
 
 async def main():
@@ -22,15 +24,22 @@ async def main():
         BotCommand(command="/add_controller", description="Подключить контроллер")
     ])
 
+    broadcaster.session_factory = sessionmaker
+    broadcaster.bot = bot
+
     dp = Dispatcher()
     dp.update.middleware(DbSessionMiddleware(session_pool=sessionmaker))
     dp.message.middleware(UsersMiddleware())
 
     dp.include_router(commands.router)
 
+    task = asyncio.create_task(mqtt.listen_async())
+
     await dp.start_polling(bot)
 
 
 if __name__ == "__main__":
+    # https://pypi.org/project/asyncio-mqtt/#note-for-windows-users
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     asyncio.run(main())
 
