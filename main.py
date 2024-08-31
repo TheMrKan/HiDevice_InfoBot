@@ -18,6 +18,7 @@ async def main():
 
     bot = Bot(config.BOT_TOKEN, default=DefaultBotProperties(parse_mode='HTML'))
     await bot.set_my_commands(commands=[
+        BotCommand(command="/list", description="Список подключенных контроллеров"),
         BotCommand(command="/add_controller", description="Подключить контроллер")
     ])
 

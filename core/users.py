@@ -1,5 +1,5 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, delete
 
 from core.models import User, Controller, UserToController
 from core import controllers
@@ -38,3 +38,8 @@ async def authorize_controller_async(db: AsyncSession, user: User, mqtt_user: st
     db.add(UserToController(user_id=user.id, controller_user=mqtt_user))
     return True
 
+
+async def unauthorize_controller_async(db: AsyncSession, user: User, mqtt_user: str) -> bool:
+    sql = delete(UserToController).where((UserToController.user_id == user.id) & (UserToController.controller_user == mqtt_user))
+    result = await db.execute(sql)
+    return result.rowcount > 0
