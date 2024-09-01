@@ -13,7 +13,7 @@ async def listen_async():
             await client.subscribe("+/tele/Aquarius/LWT")
             async for message in messages:
                 try:
-                    await handle_message_async(str(message.topic), message.payload.decode("utf-8"))
+                    await handle_message_async(str(message.topic), message.payload.decode("utf-8"), message.retain)
                 except:
                     traceback.print_exc()
 
@@ -22,11 +22,14 @@ def get_mqtt_user(topic: str) -> str:
     return topic.split("/")[0]
 
 
-async def handle_message_async(topic: str, message: str):
+async def handle_message_async(topic: str, message: str, retain: bool):
+    if retain or not message.strip():
+        return
+
     mqtt_user = get_mqtt_user(topic)
     if topic.endswith("LWT"):
         await mqtt_handlers.handle_lwt_async(mqtt_user, int(message))
     else:
-        await mqtt_handlers.handle_message_async(mqtt_user, message)
+        await mqtt_handlers.handle_message_async(mqtt_user, message.strip())
 
 
