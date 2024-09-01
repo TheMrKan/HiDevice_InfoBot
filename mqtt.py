@@ -1,9 +1,12 @@
 import asyncio
-import traceback
 import asyncio_mqtt as aiomqtt
+import logging
 
 import config
 import mqtt_handlers
+
+
+logger = logging.getLogger(__name__)
 
 
 async def listen_async():
@@ -14,8 +17,8 @@ async def listen_async():
             async for message in messages:
                 try:
                     await handle_message_async(str(message.topic), message.payload.decode("utf-8"), message.retain)
-                except:
-                    traceback.print_exc()
+                except Exception as e:
+                    logger.exception("Failed to handle message '%s' from %s", message.payload, str(message.topic), exc_info=e)
 
 
 def get_mqtt_user(topic: str) -> str:
@@ -24,6 +27,7 @@ def get_mqtt_user(topic: str) -> str:
 
 async def handle_message_async(topic: str, message: str, retain: bool):
     if retain or not message.strip():
+        logger.debug("Ignoring retain or empty message from %s", topic)
         return
 
     mqtt_user = get_mqtt_user(topic)

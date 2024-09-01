@@ -24,3 +24,40 @@ if not MQTT_USER:
 MQTT_PASSWORD = os.getenv("MQTT_PASSWORD")
 if not MQTT_PASSWORD:
     raise ValueError("MQTT_PASSWORD environment variable is not set")
+
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': True,
+    'formatters': {
+        'file': {
+            'format': '[%(asctime)s %(levelname)s] [%(name)s] %(message)s'
+        },
+        'console': {
+            'format': '[%(levelname)s] [%(name)s] %(message)s'
+        },
+    },
+    'handlers': {
+        'console': {
+            'level': 'DEBUG',
+            'formatter': 'console',
+            'class': 'logging.StreamHandler',
+            'stream': 'ext://sys.stdout',
+        },
+        'file': {
+            'level': 'DEBUG',
+            'formatter': 'file',
+            'class': 'logging.handlers.TimedRotatingFileHandler',
+            'filename': 'logs/log.log',
+            'when': 'midnight',
+            'backupCount': 6,
+        },
+    },
+    'loggers': {
+        '': {
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG',
+            'propagate': False
+        },
+    }
+}

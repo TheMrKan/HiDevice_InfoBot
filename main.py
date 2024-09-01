@@ -1,4 +1,7 @@
 import asyncio
+import logging
+import logging.config
+import os
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
@@ -7,6 +10,13 @@ from aiogram.types import BotCommand
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 import config
+
+if not os.path.isdir("logs"):
+    os.mkdir("logs")
+logging.config.dictConfig(config.LOGGING)
+logger = logging.getLogger(__name__)
+
+
 from middlewares import DbSessionMiddleware, UsersMiddleware
 import commands
 from core.db import engine
@@ -15,13 +25,15 @@ import mqtt
 
 
 async def main():
+    logger.info("Starting...")
 
     sessionmaker = async_sessionmaker(engine, expire_on_commit=False)
 
     bot = Bot(config.BOT_TOKEN, default=DefaultBotProperties(parse_mode='HTML'))
     await bot.set_my_commands(commands=[
         BotCommand(command="/list", description="Список подключенных контроллеров"),
-        BotCommand(command="/add_controller", description="Подключить контроллер")
+        BotCommand(command="/add_controller", description="Подключить контроллер"),
+        BotCommand(command="/remove_controller", description="Удалить контроллер")
     ])
 
     broadcaster.session_factory = sessionmaker
@@ -35,6 +47,7 @@ async def main():
 
     task = asyncio.create_task(mqtt.listen_async())
 
+    logger.info("Polling...")
     await dp.start_polling(bot)
 
 

@@ -4,7 +4,7 @@ from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton, ReplyKey
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.context import FSMContext
 from sqlalchemy.ext.asyncio import AsyncSession
-import traceback
+import logging
 
 from core.models import User
 from core import controllers, users
@@ -16,6 +16,18 @@ router = Router(name="commands")
 LIST_CONTROLLERS = "Подключенные контроллеры"
 ADD_CONTROLLER = "Добавить"
 REMOVE_CONTROLLER = "Удалить"
+
+START_MESSAGE = f"""
+{html.bold("🤖 Hi-Garden Telegram Bot")}
+
+Бот позволяет подключить оповещения в Telegram от контроллеров {html.link("Hi-Garden", "https://hi-garden.ru/")}.
+
+Используйте /add_controller, введите имя пользователя и пароль MQTT от Вашего контроллера, чтобы начать получать оповещения.
+
+Другие команды:
+/list - посмотреть список подключенных устройств
+/remove_controller - удалить контроллер из бота
+"""
 
 
 default_keyboard = ReplyKeyboardMarkup(
@@ -34,16 +46,19 @@ cancel_keyboard = ReplyKeyboardMarkup(
                          )
 
 
+logger = logging.getLogger(__name__)
+
+
 @router.error()
 async def error_handler(event: ErrorEvent):
-    traceback.print_exception(event.exception)
+    logger.exception("An error occured during handling an event", exc_info=event.exception)
     if event.update.message:
         await event.update.message.answer("❌  Во время обработки произошла непредвиденная ошибка", reply_markup=default_keyboard)
 
 
 @router.message(CommandStart())
 async def cmd_start(message: Message):
-    await message.answer("Привет!", reply_markup=default_keyboard)
+    await message.answer(START_MESSAGE, reply_markup=default_keyboard)
 
 
 @router.message(Command("list"))
