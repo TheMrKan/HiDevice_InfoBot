@@ -22,7 +22,7 @@ async def broadcast_async(mqtt_user: str, message: str):
 
             users = await controllers.get_controller_users_async(session, controller)
             for user_id in users:
-                await bot.send_message(user_id, f"💬  {html.bold(f"Контроллер {controller.mqtt_user}")}\n\n{message}")
+                await bot.send_message(user_id, message)
 
             await session.commit()
         except:
