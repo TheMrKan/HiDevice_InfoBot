@@ -1,6 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from aiogram import Bot, html
 import logging
+import json
 
 from core import controllers
 
@@ -25,7 +26,7 @@ async def broadcast_async(mqtt_user: str, message: str):
 
             users = await controllers.get_controller_users_async(session, controller)
             for user_id in users:
-                logger.info("[%s] >>> [%s]: %s", controller.mqtt_user, user_id, message.replace("\r\n", "\\r\\n").replace("\n", "\\n"))
+                logger.info("[%s] >>> [%s]: %s", controller.mqtt_user, user_id, json.dumps(message, ensure_ascii=False))
                 await bot.send_message(user_id, message)
 
             await session.commit()

@@ -45,7 +45,11 @@ async def main():
 
     dp.include_router(commands.router)
 
-    task = asyncio.create_task(mqtt.listen_async())
+    listen_task = asyncio.create_task(mqtt.listen_async(config.MQTT_HOST, config.MQTT_PORT, config.MQTT_USER, config.MQTT_PASSWORD))
+    if all((config.RESERVE_MQTT_HOST, config.RESERVE_MQTT_PORT, config.RESERVE_MQTT_USER, config.RESERVE_MQTT_PASSWORD)):
+        listen_reserver_task = asyncio.create_task(mqtt.listen_async(config.RESERVE_MQTT_HOST, config.RESERVE_MQTT_PORT, config.RESERVE_MQTT_USER, config.RESERVE_MQTT_PASSWORD))
+    else:
+        logger.info("Reserve MQTT server is not configured")
 
     logger.info("Polling...")
     await dp.start_polling(bot)

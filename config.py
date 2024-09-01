@@ -25,10 +25,17 @@ MQTT_PASSWORD = os.getenv("MQTT_PASSWORD")
 if not MQTT_PASSWORD:
     raise ValueError("MQTT_PASSWORD environment variable is not set")
 
+RESERVE_MQTT_HOST = os.getenv("RESERVE_MQTT_HOST")
+RESERVE_MQTT_PORT = os.getenv("RESERVE_MQTT_PORT")
+if RESERVE_MQTT_PORT:
+    RESERVE_MQTT_PORT = int(RESERVE_MQTT_PORT)
+RESERVE_MQTT_USER = os.getenv("RESERVE_MQTT_USER")
+RESERVE_MQTT_PASSWORD = os.getenv("RESERVE_MQTT_PASSWORD")
+
 
 LOGGING = {
     'version': 1,
-    'disable_existing_loggers': True,
+    'disable_existing_loggers': False,
     'formatters': {
         'file': {
             'format': '[%(asctime)s %(levelname)s] [%(name)s] %(message)s'
@@ -51,13 +58,11 @@ LOGGING = {
             'filename': 'logs/log.log',
             'when': 'midnight',
             'backupCount': 6,
+            'encoding': "utf-8",
         },
     },
-    'loggers': {
-        '': {
-            'handlers': ['console', 'file'],
-            'level': 'DEBUG',
-            'propagate': False
-        },
+    'root': {
+        'handlers': ['console', 'file'],
+        'level': 'DEBUG',
     }
 }

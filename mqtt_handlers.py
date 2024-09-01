@@ -7,9 +7,9 @@ import broadcaster
 logger = logging.getLogger(__name__)
 
 
-async def handle_lwt_async(mqtt_user: str, lwt: int):
+async def handle_lwt_async(mqtt_host: str, mqtt_user: str, lwt: int):
     logger.debug("[%s] [LWT] %s", mqtt_user, lwt)
-    tg_message = f"{"🟢" if lwt else "🔴"}  {html.bold(f"{mqtt_user} {"подключился к брокеру" if lwt else "отключился от брокера"}")}"
+    tg_message = f"{"🟢" if lwt else "🔴"}  {html.bold(f"{mqtt_user} {"подключился к брокеру" if lwt else "отключился от брокера"} {mqtt_host}")}"
     await broadcaster.broadcast_async(mqtt_user, tg_message)
 
 
