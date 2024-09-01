@@ -47,7 +47,7 @@ async def main():
 
     listen_task = asyncio.create_task(mqtt.listen_async(config.MQTT_HOST, config.MQTT_PORT, config.MQTT_USER, config.MQTT_PASSWORD))
     if all((config.RESERVE_MQTT_HOST, config.RESERVE_MQTT_PORT, config.RESERVE_MQTT_USER, config.RESERVE_MQTT_PASSWORD)):
-        listen_reserver_task = asyncio.create_task(mqtt.listen_async(config.RESERVE_MQTT_HOST, config.RESERVE_MQTT_PORT, config.RESERVE_MQTT_USER, config.RESERVE_MQTT_PASSWORD))
+        listen_reserve_task = asyncio.create_task(mqtt.listen_async(config.RESERVE_MQTT_HOST, config.RESERVE_MQTT_PORT, config.RESERVE_MQTT_USER, config.RESERVE_MQTT_PASSWORD))
     else:
         logger.info("Reserve MQTT server is not configured")
 
@@ -56,7 +56,8 @@ async def main():
 
 
 if __name__ == "__main__":
-    # https://pypi.org/project/asyncio-mqtt/#note-for-windows-users
-    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    if os.name == "nt":    # check if Windows
+        # https://pypi.org/project/asyncio-mqtt/#note-for-windows-users
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     asyncio.run(main())
 
