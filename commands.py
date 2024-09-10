@@ -58,6 +58,24 @@ cancel_keyboard = ReplyKeyboardMarkup(
 logger = logging.getLogger(__name__)
 
 
+def build_notifications_markup(controller_name: str, notifications: dict[str, bool]) -> InlineKeyboardMarkup:
+    inline = InlineKeyboardMarkup(inline_keyboard=[[]])
+    for key, enabled in notifications.items():
+        text = ("🟢" if enabled else "🔴") + "   " + NOTIFICATION_TRANSLATIONS.get(key, key)
+        inline.inline_keyboard.append([InlineKeyboardButton(text=text, callback_data=f"notification:{controller_name}:{key}")])
+
+    return inline
+
+
+def build_controller_name_markup(user_controllers: list[str]):
+    keyboard = ReplyKeyboardMarkup(keyboard=[], resize_keyboard=True)
+    for controller in user_controllers:
+        keyboard.keyboard.append([KeyboardButton(text=controller)])
+    keyboard.keyboard += cancel_keyboard.keyboard
+
+    return keyboard
+
+
 @router.error()
 async def error_handler(event: ErrorEvent):
     logger.exception("An error occured during handling an event", exc_info=event.exception)
@@ -141,9 +159,10 @@ class RemoveControllerForm(StatesGroup):
 
 @router.message(Command("remove_controller"))
 @router.message(F.text.casefold() == REMOVE_CONTROLLER.casefold())
-async def cmd_remove_controller(message: Message, state: FSMContext):
+async def cmd_remove_controller(message: Message, state: FSMContext, session: AsyncSession, user: User):
     await state.set_state(RemoveControllerForm.controller_name)
-    await message.answer(f"{html.bold("❗️ Удаление контроллера ❗️")}\n\n👤  Имя пользователя MQTT:", reply_markup=cancel_keyboard)
+    user_controllers = await users.get_user_controllers_async(session, user)
+    await message.answer(f"{html.bold("❗️ Удаление контроллера ❗️")}\n\n👤  Имя пользователя MQTT:", reply_markup=build_controller_name_markup(user_controllers))
 
 
 @router.message(RemoveControllerForm.controller_name)
@@ -167,19 +186,11 @@ class ConfigureForm(StatesGroup):
 
 @router.message(Command("configure"))
 @router.message(F.text.casefold() == CONFIGURE.casefold())
-async def cmd_configure(message: Message, state: FSMContext):
+async def cmd_configure(message: Message, state: FSMContext, session: AsyncSession, user: User):
     await state.set_state(ConfigureForm.controller_name)
+    user_controllers = await users.get_user_controllers_async(session, user)
     await message.answer(f"{html.bold("⚙️ Настройка уведомлений ⚙️")}\n\n👤  Имя пользователя MQTT:",
-                         reply_markup=cancel_keyboard)
-
-
-def build_notifications_markup(controller_name: str, notifications: dict[str, bool]) -> InlineKeyboardMarkup:
-    inline = InlineKeyboardMarkup(inline_keyboard=[[]])
-    for key, enabled in notifications.items():
-        text = ("🟢" if enabled else "🔴") + "   " + NOTIFICATION_TRANSLATIONS.get(key, key)
-        inline.inline_keyboard.append([InlineKeyboardButton(text=text, callback_data=f"notification:{controller_name}:{key}")])
-
-    return inline
+                         reply_markup=build_controller_name_markup(user_controllers))
 
 
 @router.message(ConfigureForm.controller_name)
