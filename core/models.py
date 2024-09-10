@@ -17,6 +17,7 @@ class Controller(Base):
 
     mqtt_user: Mapped[str] = mapped_column(primary_key=True)
     mqtt_password: Mapped[str] = mapped_column()
+    notifications: Mapped[int] = mapped_column(server_default="0")
 
 
 class UserToController(Base):

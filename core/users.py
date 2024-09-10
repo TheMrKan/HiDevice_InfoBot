@@ -1,5 +1,5 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete
+from sqlalchemy import select, delete, exists
 import logging
 
 from core.models import User, Controller, UserToController
@@ -28,12 +28,17 @@ async def get_user_controllers_async(db: AsyncSession, user: User) -> list[str]:
     return list(result.scalars())
 
 
+async def has_controller_async(db: AsyncSession, user: User, mqtt_user: str) -> bool:
+    sql = exists().where((UserToController.user_id == user.id) & (UserToController.controller_user == mqtt_user)).select()
+    return (await db.execute(sql)).scalar()
+
+
 class AuthorizationError(Exception):
     pass
 
 
 async def authorize_controller_async(db: AsyncSession, user: User, mqtt_user: str, mqtt_password: str) -> bool:
-    if mqtt_user in await get_user_controllers_async(db, user):
+    if await has_controller_async(db, user, mqtt_user):
         logger.debug("Failed to add controller %s to user %s: already authorized", mqtt_user, user.id)
         return False
 

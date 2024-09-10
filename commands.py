@@ -1,6 +1,7 @@
 from aiogram import Router, html, F
 from aiogram.filters import CommandStart, Command
-from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove, ErrorEvent
+from aiogram.types import (Message, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove, ErrorEvent,
+                           InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery)
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.context import FSMContext
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,6 +17,7 @@ router = Router(name="commands")
 LIST_CONTROLLERS = "Подключенные контроллеры"
 ADD_CONTROLLER = "Добавить"
 REMOVE_CONTROLLER = "Удалить"
+CONFIGURE = "Настроить"
 
 START_MESSAGE = f"""
 {html.bold("🤖 Hi-Garden Telegram Bot")}
@@ -29,11 +31,18 @@ START_MESSAGE = f"""
 /remove_controller - удалить контроллер из бота
 """
 
+NOTIFICATION_TRANSLATIONS = {
+    "channel_status": "Статус каналов",
+    "dry_mode": "Сухой режим",
+    "clock_error": "Ошибка часов"
+}
+
 
 default_keyboard = ReplyKeyboardMarkup(
                              keyboard=[
                                  [KeyboardButton(text=LIST_CONTROLLERS)],
                                  [KeyboardButton(text=ADD_CONTROLLER), KeyboardButton(text=REMOVE_CONTROLLER)],
+                                 [KeyboardButton(text=CONFIGURE)],
                              ],
                              resize_keyboard=True
                          )
@@ -54,6 +63,8 @@ async def error_handler(event: ErrorEvent):
     logger.exception("An error occured during handling an event", exc_info=event.exception)
     if event.update.message:
         await event.update.message.answer("❌  Во время обработки произошла непредвиденная ошибка", reply_markup=default_keyboard)
+    elif event.update.callback_query:
+        await event.update.callback_query.answer("❌  Во время обработки произошла непредвиденная ошибка", reply_markup=default_keyboard)
 
 
 @router.message(CommandStart())
@@ -148,3 +159,73 @@ async def cmd_remove_controller_name(message: Message, session: AsyncSession, us
         await message.answer(reply, reply_markup=default_keyboard)
     finally:
         await state.clear()
+
+
+class ConfigureForm(StatesGroup):
+    controller_name = State()
+
+
+@router.message(Command("configure"))
+@router.message(F.text.casefold() == CONFIGURE.casefold())
+async def cmd_configure(message: Message, state: FSMContext):
+    await state.set_state(ConfigureForm.controller_name)
+    await message.answer(f"{html.bold("⚙️ Настройка уведомлений ⚙️")}\n\n👤  Имя пользователя MQTT:",
+                         reply_markup=cancel_keyboard)
+
+
+def build_notifications_markup(controller_name: str, notifications: dict[str, bool]) -> InlineKeyboardMarkup:
+    inline = InlineKeyboardMarkup(inline_keyboard=[[]])
+    for key, enabled in notifications.items():
+        text = ("🟢" if enabled else "🔴") + "   " + NOTIFICATION_TRANSLATIONS.get(key, key)
+        inline.inline_keyboard.append([InlineKeyboardButton(text=text, callback_data=f"notification:{controller_name}:{key}")])
+
+    return inline
+
+
+@router.message(ConfigureForm.controller_name)
+async def cmd_configure_name(message: Message, session: AsyncSession, user: User, state: FSMContext):
+    try:
+        name = message.text.strip()
+
+        if await users.has_controller_async(session, user, name):
+            controller = await controllers.get_controller_async(session, name)
+            notifications = controllers.get_controller_notifications(controller)
+
+            inline = build_notifications_markup(name, notifications)
+
+            await message.answer(text=f"⚙️ {html.bold(f"Настройка уведомлений {name}")} ⚙️\n\n", reply_markup=inline)
+            reply = "Нажмите на необходимый пункт, чтобы изменить статус уведомлений."
+        else:
+            reply = "⚠️  Контроллер не добавлен"
+
+        await message.answer(text=reply, reply_markup=default_keyboard)
+
+    finally:
+        await state.clear()
+
+
+@router.callback_query(F.data.startswith('notification:'))
+async def callback_notification(callback_query: CallbackQuery, session: AsyncSession, user: User):
+    controller_name, notifications_key = callback_query.data.split(":")[1:3]
+    if not await users.has_controller_async(session, user, controller_name):
+        await callback_query.answer(text="❌  Ошибка доступа")
+        return
+
+    logger.info("User '%s' switched notifications '%s' for controller '%s'", user.id, notifications_key,
+                controller_name)
+
+    controller = await controllers.get_controller_async(session, controller_name)
+    if controller is None:
+        raise KeyError(f"Controller {controller_name!r} not found")
+
+    new_state = await controllers.switch_notifications_async(controller, notifications_key)
+
+    translation = NOTIFICATION_TRANSLATIONS.get(notifications_key, notifications_key)
+    await callback_query.answer(text=f"{"🟢" if new_state else "🔴"} {translation} - {"ВКЛЮЧЕНО" if new_state else "ВЫКЛЮЧЕНО"}")
+
+    notifications = controllers.get_controller_notifications(controller)
+    inline = build_notifications_markup(controller_name, notifications)
+    await callback_query.message.edit_reply_markup(reply_markup=inline)
+
+
+

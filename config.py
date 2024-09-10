@@ -64,5 +64,12 @@ LOGGING = {
     'root': {
         'handlers': ['console', 'file'],
         'level': 'DEBUG',
+    },
+    'loggers': {
+        "aiogram.event": {
+            'handlers': ['console', 'file'],
+            'level': 'WARNING',
+            'propagate': False
+        }
     }
 }

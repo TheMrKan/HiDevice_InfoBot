@@ -22,6 +22,7 @@ import commands
 from core.db import engine
 import broadcaster
 import mqtt
+import mqtt_handlers
 
 
 async def main():
@@ -33,7 +34,8 @@ async def main():
     await bot.set_my_commands(commands=[
         BotCommand(command="/list", description="Список подключенных контроллеров"),
         BotCommand(command="/add_controller", description="Подключить контроллер"),
-        BotCommand(command="/remove_controller", description="Удалить контроллер")
+        BotCommand(command="/remove_controller", description="Удалить контроллер"),
+        BotCommand(command="/configure", description="Настроить уведомления")
     ])
 
     broadcaster.session_factory = sessionmaker
@@ -41,9 +43,15 @@ async def main():
 
     dp = Dispatcher()
     dp.update.middleware(DbSessionMiddleware(session_pool=sessionmaker))
-    dp.message.middleware(UsersMiddleware())
+
+    users_middleware = UsersMiddleware()
+    dp.message.middleware(users_middleware)
+    dp.callback_query.middleware(users_middleware)
 
     dp.include_router(commands.router)
+
+    mqtt.lwt_handler_async = mqtt_handlers.handle_lwt_async
+    mqtt.message_handler_async = mqtt_handlers.handle_message_async
 
     listen_task = asyncio.create_task(mqtt.listen_async(config.MQTT_HOST, config.MQTT_PORT, config.MQTT_USER, config.MQTT_PASSWORD))
     if all((config.RESERVE_MQTT_HOST, config.RESERVE_MQTT_PORT, config.RESERVE_MQTT_USER, config.RESERVE_MQTT_PASSWORD)):
