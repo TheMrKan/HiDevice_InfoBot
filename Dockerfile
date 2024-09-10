@@ -11,4 +11,4 @@ RUN apk add --update --no-cache --virtual .tmp-build-deps \
     pip install wheel && \
     pip install --no-cache-dir -r requirements.txt
 
-CMD ["python3", "main.py"]
+CMD ["sh", "-c", "python3 -m alembic upgrade head; python3 main.py"]
