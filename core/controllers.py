@@ -53,7 +53,7 @@ async def switch_notifications_async(controller: Controller, notifications_key: 
     else:
         controller.notifications = __enable_notifications(controller.notifications, index)
 
-    await mqtt.send_async(controller.mqtt_user, f"#{controller.notifications}")
+    await mqtt.send_async(controller.mqtt_user, f"${controller.notifications}")
 
     return not was_enabled
 
