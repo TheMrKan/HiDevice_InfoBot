@@ -43,7 +43,7 @@ async def authorize_controller_async(db: AsyncSession, user: User, mqtt_user: st
         return False
 
     controller = await controllers.get_controller_async(db, mqtt_user)
-    if not controller or not controllers.check_auth(controller, mqtt_password):
+    if not controller or not await controllers.check_auth_async(controller, mqtt_password):
         raise AuthorizationError()
 
     db.add(UserToController(user_id=user.id, controller_user=mqtt_user))

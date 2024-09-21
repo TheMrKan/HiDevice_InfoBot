@@ -28,8 +28,8 @@ async def get_controller_users_async(db: AsyncSession, controller: Controller) -
     return list(result.scalars())
 
 
-def check_auth(controller: Controller, mqtt_password: str) -> bool:
-    return controller.mqtt_password == mqtt_password
+async def check_auth_async(controller: Controller, mqtt_password: str) -> bool:
+    return await mqtt.check_auth_async(controller.mqtt_user, mqtt_password)
 
 
 def get_controller_notifications(controller: Controller) -> dict[str, bool]:

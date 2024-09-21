@@ -3,6 +3,8 @@ import asyncio_mqtt as aiomqtt
 import logging
 from typing import Callable, Awaitable
 
+import asyncio_mqtt.error
+
 import config
 
 logger = logging.getLogger("MQTT")    # по какой-то причине логгер 'mqtt' не работает
@@ -52,5 +54,13 @@ async def send_async(mqtt_user: str, message: str):
     topic = f"{mqtt_user}/aqua_smart"
     logger.info("Sending to '%s': '%s'", topic, message)
     await asyncio.gather(*(asyncio.create_task(c.publish(topic, message)) for c in __clients))
+
+
+async def check_auth_async(username: str, password: str) -> bool:
+    try:
+        async with aiomqtt.Client(config.MQTT_HOST, config.MQTT_PORT, username=username, password=password):
+            return True
+    except asyncio_mqtt.error.MqttConnectError:
+        return False
 
 
