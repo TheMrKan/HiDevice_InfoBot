@@ -19,20 +19,26 @@ __clients: set[aiomqtt.Client] = set()
 
 async def listen_async(host: str, port: int, username: str, password: str):
     logger.debug(f"Connecting to {username}@{host}:{port}...")
-    async with aiomqtt.Client(host, port, username=username, password=password) as client:
-        logger.info(f"Listening for MQTT server {username}@{host}:{port}")
-        __clients.add(client)
+    while True:
         try:
-            async with client.messages() as messages:
-                await client.subscribe("+/telegram")
-                await client.subscribe("+/tele/Aquarius/LWT")
-                async for message in messages:
-                    try:
-                        await handle_message_async(host, str(message.topic), message.payload.decode("utf-8"), message.retain)
-                    except Exception as e:
-                        logger.exception("Failed to handle message '%s' from %s", message.payload, str(message.topic), exc_info=e)
-        finally:
-            __clients.remove(client)
+            async with aiomqtt.Client(host, port, username=username, password=password) as client:
+                logger.info(f"Listening for MQTT server {username}@{host}:{port}")
+                __clients.add(client)
+                try:
+                    async with client.messages() as messages:
+                        await client.subscribe("+/telegram")
+                        await client.subscribe("+/tele/Aquarius/LWT")
+                        async for message in messages:
+                            try:
+                                await handle_message_async(host, str(message.topic), message.payload.decode("utf-8"), message.retain)
+                            except Exception as e:
+                                logger.exception("Failed to handle message '%s' from %s", message.payload, str(message.topic), exc_info=e)
+                finally:
+                    __clients.remove(client)
+        except Exception as e:
+            logger.exception("Lost connection to MQTT broker %s@%s:%s. Retrying after 1 second...", username, host, port, exc_info=e)
+            await asyncio.sleep(1)
+
 
 
 def get_mqtt_user(topic: str) -> str:
