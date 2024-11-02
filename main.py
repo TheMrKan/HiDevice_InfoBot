@@ -5,7 +5,6 @@ import os
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
-from aiogram.types import BotCommand
 
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
@@ -31,12 +30,7 @@ async def main():
     sessionmaker = async_sessionmaker(engine, expire_on_commit=False)
 
     bot = Bot(config.BOT_TOKEN, default=DefaultBotProperties(parse_mode='HTML'))
-    await bot.set_my_commands(commands=[
-        BotCommand(command="/list", description="Список подключенных контроллеров"),
-        BotCommand(command="/add_controller", description="Подключить контроллер"),
-        BotCommand(command="/remove_controller", description="Удалить контроллер"),
-        BotCommand(command="/configure", description="Настроить уведомления")
-    ])
+    await bot.set_my_commands(commands=commands.COMMAND_LIST)
 
     broadcaster.session_factory = sessionmaker
     broadcaster.bot = bot

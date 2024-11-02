@@ -1,6 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 import logging
+from enum import Enum
 
 from core.models import Controller, UserToController
 import mqtt
@@ -12,6 +13,9 @@ NOTIFICATIONS = [
     "clock_error"
 ]
 
+class DiagnosticsData(Enum):
+    TODAY = 0
+    YESTERDAY = 1
 
 logger = logging.getLogger(__name__)
 
@@ -64,3 +68,10 @@ def __enable_notifications(notifications_int: int, index: int) -> int:
 
 def __disable_notifications(notifications_int: int, index: int) -> int:
     return notifications_int & ~(1 << index)
+
+
+async def request_diagnostics_async(controller: Controller, data_key: DiagnosticsData):
+    request = "^" + str(data_key.value)
+    logger.debug("Sending diagnostics request '%s' to controller %s", request, controller.mqtt_user)
+
+    await mqtt.send_async(controller.mqtt_user, request)

@@ -2,6 +2,7 @@ from aiogram import Router, html, F
 from aiogram.filters import CommandStart, Command
 from aiogram.types import (Message, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove, ErrorEvent,
                            InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery)
+from aiogram.types import BotCommand
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.context import FSMContext
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,6 +19,15 @@ LIST_CONTROLLERS = "Подключенные контроллеры"
 ADD_CONTROLLER = "Добавить"
 REMOVE_CONTROLLER = "Удалить"
 CONFIGURE = "Настроить"
+DIAGNOSTICS = "Диагностика"
+
+COMMAND_LIST = [
+        BotCommand(command="/list", description="Список подключенных контроллеров"),
+        BotCommand(command="/add_controller", description="Подключить контроллер"),
+        BotCommand(command="/remove_controller", description="Удалить контроллер"),
+        BotCommand(command="/configure", description="Настроить уведомления"),
+        BotCommand(command="/diagnostics", description="Запрос диагностических данных с контроллера")
+    ]
 
 START_MESSAGE = f"""
 {html.bold("🤖 Hi-Garden Telegram Bot")}
@@ -29,6 +39,8 @@ START_MESSAGE = f"""
 Другие команды:
 /list - посмотреть список подключенных устройств
 /remove_controller - удалить контроллер из бота
+/configure - настроить уведомления
+/diagnostics - запросить диагностические данные с контроллера
 """
 
 NOTIFICATION_TRANSLATIONS = {
@@ -42,7 +54,7 @@ default_keyboard = ReplyKeyboardMarkup(
                              keyboard=[
                                  [KeyboardButton(text=LIST_CONTROLLERS)],
                                  [KeyboardButton(text=ADD_CONTROLLER), KeyboardButton(text=REMOVE_CONTROLLER)],
-                                 [KeyboardButton(text=CONFIGURE)],
+                                 [KeyboardButton(text=CONFIGURE), KeyboardButton(text=DIAGNOSTICS)],
                              ],
                              resize_keyboard=True
                          )
@@ -237,6 +249,58 @@ async def callback_notification(callback_query: CallbackQuery, session: AsyncSes
     notifications = controllers.get_controller_notifications(controller)
     inline = build_notifications_markup(controller_name, notifications)
     await callback_query.message.edit_reply_markup(reply_markup=inline)
+
+
+class DiagnosticsForm(StatesGroup):
+    controller_name = State()
+
+
+@router.message(Command("diagnostics"))
+@router.message(F.text.casefold() == DIAGNOSTICS.casefold())
+async def cmd_diagnostics(message: Message, state: FSMContext, session: AsyncSession, user: User):
+    await state.set_state(DiagnosticsForm.controller_name)
+    user_controllers = await users.get_user_controllers_async(session, user)
+    await message.answer(f"{html.bold("⚙️ Диагностика ⚙️")}\n\n👤  Имя пользователя MQTT:",
+                         reply_markup=build_controller_name_markup(user_controllers))
+
+
+@router.message(DiagnosticsForm.controller_name)
+async def cmd_diagnostics_name(message: Message, session: AsyncSession, user: User, state: FSMContext):
+    try:
+        name = message.text.strip()
+
+        if await users.has_controller_async(session, user, name):
+            inline = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="Вкл. сегодня", callback_data=f"diagnostics:{name}:{controllers.DiagnosticsData.TODAY.name}")],
+                [InlineKeyboardButton(text="Вкл. вчера", callback_data=f"diagnostics:{name}:{controllers.DiagnosticsData.YESTERDAY.name}")]
+            ])
+
+            await message.answer(text=f"⚙️ {html.bold(f"Диагностика {name}")} ⚙️\n\n", reply_markup=inline)
+            reply = "Нажмите на необходимый пункт, чтобы запросить диагностические данные с контроллера."
+        else:
+            reply = "⚠️  Контроллер не добавлен"
+
+        await message.answer(text=reply, reply_markup=default_keyboard)
+
+    finally:
+        await state.clear()
+
+
+@router.callback_query(F.data.startswith('diagnostics:'))
+async def callback_notification(callback_query: CallbackQuery, session: AsyncSession, user: User):
+    controller_name, diagnostics_key = callback_query.data.split(":")[1:3]
+    if not await users.has_controller_async(session, user, controller_name):
+        await callback_query.answer(text="❌  Ошибка доступа")
+        return
+
+    logger.info("User '%s' requsting '%s' diagnostics data for controller '%s'", user.id, diagnostics_key, controller_name)
+
+    controller = await controllers.get_controller_async(session, controller_name)
+    if controller is None:
+        raise KeyError(f"Controller {controller_name!r} not found")
+
+    await controllers.request_diagnostics_async(controller, controllers.DiagnosticsData[diagnostics_key])
+    await callback_query.answer(text=f"Запрос отправлен")
 
 
 
